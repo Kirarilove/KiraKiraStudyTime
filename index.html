@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>KiraKira Study Time Full</title>
+    <style>
+        body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; background: #ffafcc linear-gradient(135deg, #ffafcc 0%, #ffc2d1 100%) no-repeat fixed; background-size: cover; font-family: sans-serif; color: #555; padding: 20px; }
+        .card { background: rgba(255, 255, 255, 0.96); border-radius: 25px; padding: 20px; width: 100%; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; margin-bottom: 15px; box-sizing: border-box; }
+        h1 { font-size: 1.4rem; color: #fb6f92; margin: 5px 0 15px 0; white-space: nowrap; }
+        #reward { font-size: 3.2rem; font-weight: bold; color: #fb6f92; margin: 5px 0; }
+        #timer { font-size: 1.1rem; color: #aaa; margin-bottom: 15px; font-family: monospace; }
+        .config { background: #fff0f3; padding: 12px; border-radius: 15px; font-size: 0.8rem; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .row { display: flex; justify-content: space-around; align-items: center; gap: 5px; }
+        input, select { border: 2px solid #ffafcc; border-radius: 8px; padding: 4px; background: white; }
+        .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        button { padding: 12px; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; background: #ffafcc; color: white; }
+        #startBtn { grid-column: span 2; font-size: 1.1rem; }
+        #stopBtn { background: #fb6f92; }
+        button:disabled { background: #eee !important; color: #ccc !important; }
+        .calc-box { border: 2px dashed #ffafcc; border-radius: 15px; padding: 10px; background: #fff; margin-top: 5px; }
+        .wish-box { text-align: left; background: white; border: 1px solid #ffafcc; border-radius: 12px; padding: 10px; max-height: 80px; overflow-y: auto; margin: 10px 0; font-size: 0.75rem; }
+        .wish-item { display: flex; justify-content: space-between; border-bottom: 1px dashed #eee; padding: 4px 0; }
+        #modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; max-width: 300px; background: white; padding: 25px; border-radius: 30px; box-shadow: 0 0 100px rgba(0,0,0,0.3); text-align: center; z-index: 1000; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>KiraKira Study Time</h1>
+    <div class="config">
+        <div class="row">時給: <input type="number" id="rate" value="1000" style="width:50px;">円 科目: <select id="sub"></select></div>
+        <div class="row"><input type="text" id="addS" placeholder="追加科目" style="width:100px;"><button onclick="newS()" style="padding:4px 8px; font-size:0.7rem; border-radius:10px;">追加</button></div>
+    </div>
+    <div id="reward">¥0</div>
+    <div id="timer">00:00:00</div>
+    <div class="btns">
+        <button id="startBtn" onclick="stT()">Start Study</button>
+        <button id="pauseBtn" onclick="paT()" disabled>休憩</button>
+        <button id="stopBtn" onclick="soT()" disabled>終了</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="calc-box">
+        <div style="color:#fb6f92; font-weight:bold; font-size:0.8rem;">💰 お給料計算</div>
+        <div style="font-size:0.7rem; margin:5px 0;"><input type="date" id="d1"> 〜 <input type="date" id="d2"> <button onclick="calc()" style="background:#fb6f92; border-radius:8px; padding:4px 8px;">計算</button></div>
+        <div id="res" style="font-size:1.3rem; font-weight:bold; color:#fb6f92;">¥0</div>
+    </div>
+</div>
+
+<div class="card">
+    <div style="font-weight:bold; color:#fb6f92; font-size:0.8rem;">🎁 Wish List (金額設定付)</div>
+    <div id="wL" class="wish-box"></div>
+    <div style="display:flex; gap:3px;">
+        <input type="text" id="wN" placeholder="ご褒美" style="flex:1; font-size:0.7rem;">
+        <input type="number" id="wP" placeholder="円" style="width:50px; font-size:0.7rem;">
+        <button onclick="addW()" style="padding:4px 8px; border-radius:8px;">追加</button>
+    </div>
+</div>
+
+<div class="card" style="font-size:0.6rem; color:#aaa;">背景: <input type="file" accept="image/*" onchange="bg(this)"></div>
+
+<div id="modal">
+    <div style="font-size: 2rem;">💖</div>
+    <div id="msg" style="margin: 15px 0; color: #fb6f92; font-weight: bold; line-height: 1.5; font-size: 0.9rem;"></div>
+    <button onclick="document.getElementById('modal').style.display='none'" style="padding:10px 20px; border-radius:20px;">OK!</button>
+</div>
+
+<script>
+    let sTime, eTime = 0, tInt, isR = false, isP = false;
+    let wishes = JSON.parse(localStorage.getItem('kk_w') || '[]');
+    let subs = JSON.parse(localStorage.getItem('kk_s') || '["指定なし","国語","数学","英語"]');
+
+    window.onload = () => {
+        renderS(); renderW();
+        const b = localStorage.getItem('kk_b');
+        if(b) document.body.style.backgroundImage = `url(${b})`;
+    };
+
+    function bg(el) { const r = new FileReader(); r.onload = (e) => { document.body.style.backgroundImage = `url(${e.target.result})`; localStorage.setItem('kk_b', e.target.result); }; r.readAsDataURL(el.files[0]); }
+    function newS() { const v = document.getElementById('addS').value; if(v){ subs.push(v); localStorage.setItem('kk_s', JSON.stringify(subs)); renderS(); document.getElementById('addS').value=''; } }
+    function renderS() { const s = document.getElementById('sub'); s.innerHTML = ''; subs.forEach(v => { const o = document.createElement('option'); o.value=v; o.textContent=v; s.appendChild(o); }); }
+    function addW() { const n = document.getElementById('wN').value, p = parseInt(document.getElementById('wP').value); if(n && p){ wishes.push({n,p}); localStorage.setItem('kk_w', JSON.stringify(wishes)); renderW(); document.getElementById('wN').value=''; document.getElementById('wP').value=''; } }
+    function renderW() { document.getElementById('wL').innerHTML = wishes.map((w,i) => `<div class="wish-item"><span>${w.n}</span><span>¥${w.p.toLocaleString()} <button onclick="delW(${i})" style="background:none;color:#ccc;border:none;">×</button></span></div>`).join(''); }
+    function delW(i) { wishes.splice(i,1); localStorage.setItem('kk_w', JSON.stringify(wishes)); renderW(); }
+
+    function stT() { isR = true; isP = false; sTime = Date.now() - eTime; tInt = setInterval(upd, 100); btn(true); }
+    function paT() { const b = document.getElementById('pauseBtn'); if(!isP){ clearInterval(tInt); isP = true; b.textContent="再開"; } else { sTime = Date.now() - eTime; tInt = setInterval(upd, 100); isP = false; b.textContent="休憩"; } }
+    function upd() { if(isR && !isP) eTime = Date.now() - sTime; const s = Math.floor(eTime/1000); document.getElementById('timer').textContent = `${Math.floor(s/3600).toString().padStart(2,'0')}:${Math.floor((s%3600)/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`; document.getElementById('reward').textContent = `¥${Math.floor(parseInt(document.getElementById('rate').value) * (eTime/3600000)).toLocaleString()}`; }
+    
+    function soT() {
+        clearInterval(tInt); const rate = parseInt(document.getElementById('rate').value); const earned = Math.floor(rate * (eTime/3600000));
+        let h = JSON.parse(localStorage.getItem('kk_h') || '[]'); h.push({r: earned, d: new Date().toISOString()}); localStorage.setItem('kk_h', JSON.stringify(h));
+        const total = h.reduce((s, i) => s + i.r, 0);
+        let msg = `お疲れ様！<br>今回の勉強代: ¥${earned.toLocaleString()}<br><br>`;
+        const cant = wishes.filter(w => w.p > total).sort((a,b) => a.p - b.p);
+        const can = wishes.filter(w => w.p <= total);
+        if(can.length > 0) msg += `「${can[can.length-1].n}」が買えるよ💖`;
+        else if(cant.length > 0) msg += `あと約${((cant[0].p - total) / rate).toFixed(1)}時間で「${cant[0].n}」が買えるよ♡`;
+        document.getElementById('msg').innerHTML = msg; document.getElementById('modal').style.display='block';
+        eTime = 0; isR = false; upd(); btn(false);
+    }
+
+    function calc() { const d1 = new Date(document.getElementById('d1').value), d2 = new Date(document.getElementById('d2').value); d2.setHours(23,59,59); const h = JSON.parse(localStorage.getItem('kk_h') || '[]'); let sum = h.filter(i => { const d = new Date(i.d); return d >= d1 && d <= d2; }).reduce((s, i) => s + i.r, 0); document.getElementById('res').textContent = `¥${sum.toLocaleString()}`; }
+    function btn(on) { document.getElementById('startBtn').disabled=on; document.getElementById('pauseBtn').disabled=!on; document.getElementById('stopBtn').disabled=!on; document.getElementById('startBtn').textContent = on ? "Study Now..." : "Start Study"; }
+</script>
+</body>
+</html>
