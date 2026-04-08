@@ -2,10 +2,10 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>KiraKira Study Time Full</title>
+    <title>KiraKira Study Time Cloud</title>
     <style>
-        body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; background: #ffafcc linear-gradient(135deg, #ffafcc 0%, #ffc2d1 100%) no-repeat fixed; background-size: cover; font-family: sans-serif; color: #555; padding: 20px; }
-        .card { background: rgba(255, 255, 255, 0.96); border-radius: 25px; padding: 20px; width: 100%; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; margin-bottom: 15px; box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; background: #ffafcc linear-gradient(135deg, #ffafcc 0%, #ffc2d1 100%) no-repeat fixed; background-size: cover; font-family: sans-serif; color: #555; padding: 20px; overflow-x: hidden; }
+        .card { background: rgba(255, 255, 255, 0.96); border-radius: 25px; padding: 20px; width: 100%; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; margin-bottom: 15px; box-sizing: border-box; position: relative; z-index: 10; }
         h1 { font-size: 1.4rem; color: #fb6f92; margin: 5px 0 15px 0; white-space: nowrap; }
         #reward { font-size: 3.2rem; font-weight: bold; color: #fb6f92; margin: 5px 0; }
         #timer { font-size: 1.1rem; color: #aaa; margin-bottom: 15px; font-family: monospace; }
@@ -13,7 +13,8 @@
         .row { display: flex; justify-content: space-around; align-items: center; gap: 5px; }
         input, select { border: 2px solid #ffafcc; border-radius: 8px; padding: 4px; background: white; }
         .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        button { padding: 12px; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; background: #ffafcc; color: white; }
+        button { padding: 12px; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; background: #ffafcc; color: white; transition: 0.2s; }
+        button:active { transform: scale(0.95); }
         #startBtn { grid-column: span 2; font-size: 1.1rem; }
         #stopBtn { background: #fb6f92; }
         button:disabled { background: #eee !important; color: #ccc !important; }
@@ -21,12 +22,14 @@
         .wish-box { text-align: left; background: white; border: 1px solid #ffafcc; border-radius: 12px; padding: 10px; max-height: 80px; overflow-y: auto; margin: 10px 0; font-size: 0.75rem; }
         .wish-item { display: flex; justify-content: space-between; border-bottom: 1px dashed #eee; padding: 4px 0; }
         #modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; max-width: 300px; background: white; padding: 25px; border-radius: 30px; box-shadow: 0 0 100px rgba(0,0,0,0.3); text-align: center; z-index: 1000; }
+        .sync-info { font-size: 0.65rem; color: #fb6f92; margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; }
+        .star { position: absolute; pointer-events: none; z-index: 9999; line-height: 1; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h1>KiraKira Study Time</h1>
+    <h1>✨ KiraKira Study Time</h1>
     <div class="config">
         <div class="row">時給: <input type="number" id="rate" value="1000" style="width:50px;">円 科目: <select id="sub"></select></div>
         <div class="row"><input type="text" id="addS" placeholder="追加科目" style="width:100px;"><button onclick="newS()" style="padding:4px 8px; font-size:0.7rem; border-radius:10px;">追加</button></div>
@@ -37,6 +40,14 @@
         <button id="startBtn" onclick="stT()">Start Study</button>
         <button id="pauseBtn" onclick="paT()" disabled>休憩</button>
         <button id="stopBtn" onclick="soT()" disabled>終了</button>
+    </div>
+    
+    <div class="sync-info">
+        あなたの同期ID: <strong id="displayID">----</strong><br>
+        <div style="margin-top:5px; display:flex; gap:5px; justify-content:center;">
+            <button onclick="copyID()" style="padding:2px 8px; font-size:0.6rem; border-radius:5px; background:#aaa;">IDコピー</button>
+            <button onclick="syncLoad()" style="padding:2px 8px; font-size:0.6rem; border-radius:5px; background:#aaa;">他端末から読込</button>
+        </div>
     </div>
 </div>
 
@@ -70,13 +81,61 @@
     let sTime, eTime = 0, tInt, isR = false, isP = false;
     let wishes = JSON.parse(localStorage.getItem('kk_w') || '[]');
     let subs = JSON.parse(localStorage.getItem('kk_s') || '["指定なし","国語","数学","英語"]');
+    let myID = localStorage.getItem('kk_id');
 
     window.onload = () => {
         renderS(); renderW();
         const b = localStorage.getItem('kk_b');
         if(b) document.body.style.backgroundImage = `url(${b})`;
+        
+        // IDの生成と表示
+        if(!myID) {
+            myID = 'KIRA-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+            localStorage.setItem('kk_id', myID);
+        }
+        document.getElementById('displayID').textContent = myID;
     };
 
+    // --- キラキラエフェクトの実装 ---
+    function createStar(x, y) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        star.innerHTML = ['✨', '⭐', '💫', '🌸'][Math.floor(Math.random() * 4)];
+        star.style.left = x + 'px';
+        star.style.top = y + 'px';
+        star.style.fontSize = (Math.random() * 15 + 10) + 'px';
+        document.body.appendChild(star);
+
+        const destX = (Math.random() - 0.5) * 100;
+        const destY = (Math.random() - 0.5) * 100;
+
+        const ani = star.animate([
+            { transform: 'translate(0, 0) scale(1) rotate(0deg)', opacity: 1 },
+            { transform: `translate(${destX}px, ${destY}px) scale(0) rotate(360deg)`, opacity: 0 }
+        ], { duration: 800, easing: 'ease-out' });
+
+        ani.onfinish = () => star.remove();
+    }
+
+    document.addEventListener('mousemove', (e) => { if(Math.random() > 0.8) createStar(e.pageX, e.pageY); });
+    document.addEventListener('touchstart', (e) => { Array.from(e.touches).forEach(t => createStar(t.pageX, t.pageY)); });
+
+    // --- 同期関連の擬似機能 ---
+    function copyID() {
+        navigator.clipboard.writeText(myID);
+        alert("IDをコピーしました！他の端末でこのIDを入力してください。");
+    }
+
+    function syncLoad() {
+        const targetID = prompt("同期したい端末のIDを入力してください：");
+        if(targetID && targetID.startsWith('KIRA-')) {
+            alert("IDを確認しました。サーバー連携が設定されると、ここからデータが同期されます。\n(現在はIDの照合デモのみ動作しています)");
+        } else if(targetID) {
+            alert("正しいID形式ではありません。");
+        }
+    }
+
+    // --- メインロジック ---
     function bg(el) { const r = new FileReader(); r.onload = (e) => { document.body.style.backgroundImage = `url(${e.target.result})`; localStorage.setItem('kk_b', e.target.result); }; r.readAsDataURL(el.files[0]); }
     function newS() { const v = document.getElementById('addS').value; if(v){ subs.push(v); localStorage.setItem('kk_s', JSON.stringify(subs)); renderS(); document.getElementById('addS').value=''; } }
     function renderS() { const s = document.getElementById('sub'); s.innerHTML = ''; subs.forEach(v => { const o = document.createElement('option'); o.value=v; o.textContent=v; s.appendChild(o); }); }
